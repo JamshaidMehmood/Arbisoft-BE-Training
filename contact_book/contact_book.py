@@ -1,81 +1,113 @@
+"""Interactive command-line contact book with input validation.
+
+Contacts are held in memory as a list of dictionaries. The menu lets the user
+add, search, update, delete, list, and sort contacts, validating names, phone
+numbers, and email addresses before storing them.
+"""
+
 from typing import Dict, List, Optional
-import re
+
+from constants import (
+    CONTACT_LINE,
+    CONTACT_LIST_HEADER,
+    CONTACT_NUMBER,
+    Field,
+    MENU_OPTIONS,
+    MENU_TITLE,
+    MSG_CONTACT_ADDED,
+    MSG_CONTACT_DELETED,
+    MSG_CONTACT_EXISTS,
+    MSG_CONTACT_FOUND,
+    MSG_CONTACT_NOT_FOUND,
+    MSG_CONTACT_UPDATED,
+    MSG_EMPTY_FIELD,
+    MSG_EMPTY_QUERY,
+    MSG_EXIT,
+    MSG_INVALID_CHOICE,
+    MSG_INVALID_EMAIL,
+    MSG_INVALID_FIELD,
+    MSG_INVALID_NAME,
+    MSG_INVALID_PHONE,
+    MSG_INVALID_SORT,
+    MSG_NO_CONTACTS,
+    MSG_NO_RESULTS,
+    MSG_RESULT_COUNT,
+    MSG_SKIP_FIELD,
+    MSG_SORTED_BY,
+    PROMPT_CHOICE,
+    PROMPT_DELETE_NAME,
+    PROMPT_EMAIL,
+    PROMPT_NAME,
+    PROMPT_NEW_FIELD,
+    PROMPT_PARTIAL_NAME,
+    PROMPT_PHONE,
+    PROMPT_RETRY_FIELD,
+    PROMPT_SEARCH_NAME,
+    PROMPT_SORT_CHOICE,
+    PROMPT_UPDATE_NAME,
+    SORT_KEY_MAP,
+    SORT_OPTIONS,
+    SORT_TITLE,
+)
+from utils import is_valid_email, is_valid_name, is_valid_phone, safe_input
+
+Contact = Dict[str, str]
 
 
 class ContactBook:
-    """Contact Book using list of dictionaries with strict validation."""
+    """Stores contacts and drives the interactive text menu."""
 
-    VALID_FIELDS = {"name", "phone", "email"}
+    VALID_FIELDS = {field.value for field in Field}
+    FIELD_VALIDATORS = {
+        Field.NAME.value: is_valid_name,
+        Field.PHONE.value: is_valid_phone,
+        Field.EMAIL.value: is_valid_email,
+    }
 
     def __init__(self) -> None:
-        self.contacts: List[Dict[str, str]] = []
+        self.contacts: List[Contact] = []
 
-    # -----------------------------
-    # VALIDATION
-    # -----------------------------
-    def is_valid_name(self, name: str) -> bool:
-        return bool(name.strip()) and all(part.isalpha() for part in name.split())
-
-    def is_valid_phone(self, phone: str) -> bool:
-        return phone.isdigit() and len(phone) == 11
-
-    def is_valid_email(self, email: str) -> bool:
-        pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
-        return bool(re.match(pattern, email))
-
-    # -----------------------------
-    # SAFE INPUT
-    # -----------------------------
-    def safe_input(self, prompt: str) -> str:
-        try:
-            return input(prompt).strip()
-        except (KeyboardInterrupt, EOFError):
-            print("\n\nInput cancelled safely.")
-            return ""
-
-    # -----------------------------
-    # BLOCKING VALID INPUT METHODS
-    # -----------------------------
     def get_valid_name(self) -> str:
         while True:
-            name = self.safe_input("Enter name: ")
-            if self.is_valid_name(name):
+            name = safe_input(PROMPT_NAME)
+            if is_valid_name(name):
                 return name
-            print(":x: Invalid name. Only alphabets allowed (e.g. Jamshaid Mehmood).")
+            print(MSG_INVALID_NAME)
 
     def get_valid_phone(self) -> str:
         while True:
-            phone = self.safe_input("Enter phone (11 digits): ")
-            if self.is_valid_phone(phone):
+            phone = safe_input(PROMPT_PHONE)
+            if is_valid_phone(phone):
                 return phone
-            print(":x: Invalid phone. Must be exactly 11 digits.")
+            print(MSG_INVALID_PHONE)
 
     def get_valid_email(self) -> str:
         while True:
-            email = self.safe_input("Enter email: ")
-            if self.is_valid_email(email):
+            email = safe_input(PROMPT_EMAIL)
+            if is_valid_email(email):
                 return email
-            print(":x: Invalid email format (e.g. test@gmail.com).")
+            print(MSG_INVALID_EMAIL)
 
-    # -----------------------------
-    # CORE LOGIC
-    # -----------------------------
     def add_contact(self, name: str, phone: str, email: str) -> bool:
         if self.search_contact(name):
             return False
 
         self.contacts.append(
-            {"name": name, "phone": phone, "email": email}
+            {
+                Field.NAME.value: name,
+                Field.PHONE.value: phone,
+                Field.EMAIL.value: email,
+            }
         )
         return True
 
-    def search_contact(self, name: str) -> Optional[Dict[str, str]]:
+    def search_contact(self, name: str) -> Optional[Contact]:
         for contact in self.contacts:
-            if contact["name"].lower() == name.lower():
+            if contact[Field.NAME.value].lower() == name.lower():
                 return contact
         return None
 
-    def update_contact(self, name: str, updates: Dict[str, str]) -> bool:
+    def update_contact(self, name: str, updates: Contact) -> bool:
         contact = self.search_contact(name)
 
         if not contact:
@@ -96,195 +128,159 @@ class ContactBook:
         self.contacts.remove(contact)
         return True
 
+    def search_partial_name(self, query: str) -> List[Contact]:
+        query = query.lower()
+        return [
+            contact
+            for contact in self.contacts
+            if query in contact[Field.NAME.value].lower()
+        ]
+
+    def sort_contacts(self, key: str) -> List[Contact]:
+        return sorted(self.contacts, key=lambda contact: contact[key].lower())
+
+    def print_contact_details(self, contact: Contact) -> None:
+        for field in Field:
+            label = field.value.capitalize()
+            print(CONTACT_LINE.format(label=label, value=contact[field.value]))
+
     def display_contacts(self) -> None:
         if not self.contacts:
-            print("\nNo contacts available.")
+            print(MSG_NO_CONTACTS)
             return
 
-        print("\n------ Contact List ------")
+        print(CONTACT_LIST_HEADER)
+        for number, contact in enumerate(self.contacts, start=1):
+            print(CONTACT_NUMBER.format(number=number))
+            self.print_contact_details(contact)
 
-        for i, c in enumerate(self.contacts, start=1):
-            print(f"\nContact {i}")
-            print(f"Name : {c['name']}")
-            print(f"Phone: {c['phone']}")
-            print(f"Email: {c['email']}")
+    def collect_updates(self, contact: Contact) -> Contact:
+        updates: Contact = {}
+        for field in Field:
+            key = field.value
+            value = safe_input(PROMPT_NEW_FIELD.format(field=key, current=contact[key]))
+            if not value:
+                continue
 
-    def search_partial_name(self, query: str) -> List[Dict[str, str]]:
-        """Search contacts by partial name (case-insensitive)."""
-        results = []
+            validator = self.FIELD_VALIDATORS[key]
+            while not validator(value):
+                print(MSG_INVALID_FIELD.format(field=key))
+                value = safe_input(PROMPT_RETRY_FIELD.format(field=key))
 
-        query = query.lower()
+            updates[key] = value
 
-        for contact in self.contacts:
-            if query in contact["name"].lower():
-                results.append(contact)
+        return updates
 
-        return results
-    
-    def sort_contacts(self, key: str) -> List[Dict[str, str]]:
-        """Sort contacts by name, phone, or email."""
-        if key not in self.VALID_FIELDS:
-            return self.contacts
+    def handle_add(self) -> None:
+        name = self.get_valid_name()
+        phone = self.get_valid_phone()
+        email = self.get_valid_email()
 
-        return sorted(self.contacts, key=lambda x: x[key].lower())
-    
-    # -----------------------------
-    # MENU
-    # -----------------------------
+        if self.add_contact(name, phone, email):
+            print(MSG_CONTACT_ADDED)
+        else:
+            print(MSG_CONTACT_EXISTS)
+
+    def handle_search(self) -> None:
+        name = safe_input(PROMPT_SEARCH_NAME)
+        if not name:
+            print(MSG_EMPTY_FIELD.format(field=Field.NAME.value.capitalize()))
+            return
+
+        contact = self.search_contact(name)
+        if contact:
+            print(MSG_CONTACT_FOUND)
+            self.print_contact_details(contact)
+        else:
+            print(MSG_CONTACT_NOT_FOUND)
+
+    def handle_update(self) -> None:
+        name = safe_input(PROMPT_UPDATE_NAME)
+        if not name:
+            print(MSG_EMPTY_FIELD.format(field=Field.NAME.value.capitalize()))
+            return
+
+        contact = self.search_contact(name)
+        if not contact:
+            print(MSG_CONTACT_NOT_FOUND)
+            return
+
+        print(MSG_SKIP_FIELD)
+        self.update_contact(name, self.collect_updates(contact))
+        print(MSG_CONTACT_UPDATED)
+
+    def handle_delete(self) -> None:
+        name = safe_input(PROMPT_DELETE_NAME)
+        if not name:
+            print(MSG_EMPTY_FIELD.format(field=Field.NAME.value.capitalize()))
+            return
+
+        if self.delete_contact(name):
+            print(MSG_CONTACT_DELETED)
+        else:
+            print(MSG_CONTACT_NOT_FOUND)
+
+    def handle_partial_search(self) -> None:
+        query = safe_input(PROMPT_PARTIAL_NAME)
+        if not query:
+            print(MSG_EMPTY_QUERY)
+            return
+
+        results = self.search_partial_name(query)
+        if not results:
+            print(MSG_NO_RESULTS)
+            return
+
+        print(MSG_RESULT_COUNT.format(count=len(results)))
+        for contact in results:
+            print()
+            self.print_contact_details(contact)
+
+    def handle_sort(self) -> None:
+        print(SORT_TITLE)
+        for option in SORT_OPTIONS:
+            print(option)
+
+        key = SORT_KEY_MAP.get(safe_input(PROMPT_SORT_CHOICE))
+        if not key:
+            print(MSG_INVALID_SORT)
+            return
+
+        print(MSG_SORTED_BY.format(field=key))
+        for contact in self.sort_contacts(key):
+            print()
+            self.print_contact_details(contact)
+
+    def display_menu(self) -> None:
+        print(MENU_TITLE)
+        for option in MENU_OPTIONS:
+            print(option)
+
     def menu(self) -> None:
         while True:
-            print("\n====== CONTACT BOOK ======")
-            print("1. Add Contact")
-            print("2. Search Contact")
-            print("3. Update Contact")
-            print("4. Delete Contact")
-            print("5. Display Contacts")
-            print("6. Search by Partial Name")
-            print("7. Sort Contacts")
-            print("8. Exit")
-            
-            choice = self.safe_input("\nEnter your choice: ")
+            self.display_menu()
+            choice = safe_input(PROMPT_CHOICE)
 
-            # ---------------- ADD ----------------
-            if choice == "1":
-                name = self.get_valid_name()
-                phone = self.get_valid_phone()
-                email = self.get_valid_email()
-
-                if self.add_contact(name, phone, email):
-                    print("\nContact added successfully.")
-                else:
-                    print("\nContact already exists.")
-
-            # ---------------- SEARCH ----------------
-            elif choice == "2":
-                name = self.safe_input("Enter name to search: ")
-
-                if not name:
-                    print("\nName cannot be empty.")
-                    continue
-
-                contact = self.search_contact(name)
-
-                if contact:
-                    print("\nContact Found")
-                    print(f"Name : {contact['name']}")
-                    print(f"Phone: {contact['phone']}")
-                    print(f"Email: {contact['email']}")
-                else:
-                    print("\nContact not found.")
-
-            # ---------------- UPDATE ----------------
-            elif choice == "3":
-                name = self.safe_input("Enter contact name: ")
-
-                if not name:
-                    print("\nName cannot be empty.")
-                    continue
-
-                contact = self.search_contact(name)
-
-                if not contact:
-                    print("\nContact not found.")
-                    continue
-
-                print("\nPress Enter to skip a field.\n")
-
-                updates = {}
-
-                new_name = self.safe_input(f"New name ({contact['name']}): ")
-                if new_name:
-                    while not self.is_valid_name(new_name):
-                        print(":x: Invalid name.")
-                        new_name = self.safe_input("Enter valid name: ")
-                    updates["name"] = new_name
-
-                new_phone = self.safe_input(f"New phone ({contact['phone']}): ")
-                if new_phone:
-                    while not self.is_valid_phone(new_phone):
-                        print(":x: Invalid phone.")
-                        new_phone = self.safe_input("Enter valid phone: ")
-                    updates["phone"] = new_phone
-
-                new_email = self.safe_input(f"New email ({contact['email']}): ")
-                if new_email:
-                    while not self.is_valid_email(new_email):
-                        print(":x: Invalid email.")
-                        new_email = self.safe_input("Enter valid email: ")
-                    updates["email"] = new_email
-
-                self.update_contact(name, updates)
-                print("\nContact updated successfully.")
-
-            # ---------------- DELETE ----------------
-            elif choice == "4":
-                name = self.safe_input("Enter contact name to delete: ")
-
-                if not name:
-                    print("\nName cannot be empty.")
-                    continue
-
-                if self.delete_contact(name):
-                    print("\nContact deleted successfully.")
-                else:
-                    print("\nContact not found.")
-
-            # ---------------- DISPLAY ----------------
-            elif choice == "5":
-                self.display_contacts()
-
-            # ---------------- EXIT ----------------
-            elif choice == "6":
-                query = self.safe_input("Enter partial name: ")
-
-                if not query:
-                    print("\nSearch query cannot be empty.")
-                    continue
-
-                results = self.search_partial_name(query)
-
-                if not results:
-                    print("\nNo contacts found.")
-                else:
-                    print(f"\nFound {len(results)} result(s):")
-
-                    for c in results:
-                        print(f"\nName : {c['name']}")
-                        print(f"Phone: {c['phone']}")
-                        print(f"Email: {c['email']}")
-            elif choice == "7":
-                print("\nSort by:")
-                print("1. Name")
-                print("2. Phone")
-                print("3. Email")
-
-                option = self.safe_input("Enter choice: ")
-
-                key_map = {
-                    "1": "name",
-                    "2": "phone",
-                    "3": "email"
-                }
-
-                key = key_map.get(option)
-
-                if not key:
-                    print("\nInvalid sort option.")
-                    continue
-
-                sorted_contacts = self.sort_contacts(key)
-
-                print(f"\nContacts sorted by {key}:")
-
-                for c in sorted_contacts:
-                    print(f"\nName : {c['name']}")
-                    print(f"Phone: {c['phone']}")
-                    print(f"Email: {c['email']}")
-            elif choice == "8":
-                print("\nThank you for using Contact Book!")
-                break
-            else:
-                print("\nInvalid choice. Try again.")
+            match choice:
+                case "1":
+                    self.handle_add()
+                case "2":
+                    self.handle_search()
+                case "3":
+                    self.handle_update()
+                case "4":
+                    self.handle_delete()
+                case "5":
+                    self.display_contacts()
+                case "6":
+                    self.handle_partial_search()
+                case "7":
+                    self.handle_sort()
+                case "8":
+                    print(MSG_EXIT)
+                    break
+                case _:
+                    print(MSG_INVALID_CHOICE)
 
 
 def main() -> None:
