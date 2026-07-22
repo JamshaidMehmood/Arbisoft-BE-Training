@@ -1,11 +1,9 @@
 """Application entry point."""
 
-from server import HttpServer
+from .server import HttpServer
 
 
 def main():
-    """Start the application."""
-
     server = HttpServer()
     server.run()
 
