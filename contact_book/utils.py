@@ -6,7 +6,9 @@ the ``ContactBook`` class and can be reused by any module that needs them.
 
 import re
 
-from constants import EMAIL_REGEX, MSG_INPUT_CANCELLED, NAME_REGEX, PHONE_LENGTH
+from .constants import EMAIL_REGEX, MSG_INPUT_CANCELLED, NAME_REGEX, PHONE_LENGTH
+
+_DIGITS = set("0123456789")
 
 
 def is_valid_name(name: str) -> bool:
@@ -14,7 +16,7 @@ def is_valid_name(name: str) -> bool:
 
 
 def is_valid_phone(phone: str) -> bool:
-    return phone.isdigit() and len(phone) == PHONE_LENGTH
+    return len(phone) == PHONE_LENGTH and all(ch in _DIGITS for ch in phone)
 
 
 def is_valid_email(email: str) -> bool:
@@ -24,6 +26,9 @@ def is_valid_email(email: str) -> bool:
 def safe_input(prompt: str) -> str:
     try:
         return input(prompt).strip()
-    except (KeyboardInterrupt, EOFError):
+    except KeyboardInterrupt:
         print(MSG_INPUT_CANCELLED)
         return ""
+    except EOFError:
+        print(MSG_INPUT_CANCELLED)
+        raise SystemExit(0)

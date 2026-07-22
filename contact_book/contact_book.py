@@ -5,9 +5,7 @@ add, search, update, delete, list, and sort contacts, validating names, phone
 numbers, and email addresses before storing them.
 """
 
-from typing import Dict, List, Optional
-
-from constants import (
+from .constants import (
     CONTACT_LINE,
     CONTACT_LIST_HEADER,
     CONTACT_NUMBER,
@@ -49,15 +47,14 @@ from constants import (
     SORT_OPTIONS,
     SORT_TITLE,
 )
-from utils import is_valid_email, is_valid_name, is_valid_phone, safe_input
+from .utils import is_valid_email, is_valid_name, is_valid_phone, safe_input
 
-Contact = Dict[str, str]
+Contact = dict[str, str]
 
 
 class ContactBook:
     """Stores contacts and drives the interactive text menu."""
 
-    VALID_FIELDS = {field.value for field in Field}
     FIELD_VALIDATORS = {
         Field.NAME.value: is_valid_name,
         Field.PHONE.value: is_valid_phone,
@@ -65,7 +62,7 @@ class ContactBook:
     }
 
     def __init__(self) -> None:
-        self.contacts: List[Contact] = []
+        self.contacts: list[Contact] = []
 
     def get_valid_name(self) -> str:
         while True:
@@ -101,7 +98,7 @@ class ContactBook:
         )
         return True
 
-    def search_contact(self, name: str) -> Optional[Contact]:
+    def search_contact(self, name: str) -> Contact | None:
         for contact in self.contacts:
             if contact[Field.NAME.value].lower() == name.lower():
                 return contact
@@ -109,14 +106,14 @@ class ContactBook:
 
     def update_contact(self, name: str, updates: Contact) -> bool:
         contact = self.search_contact(name)
-
         if not contact:
             return False
 
-        for field, value in updates.items():
-            if field in self.VALID_FIELDS:
-                contact[field] = value
+        new_name = updates.get(Field.NAME.value)
+        if new_name and new_name.lower() != name.lower() and self.search_contact(new_name):
+            return False
 
+        contact.update(updates)
         return True
 
     def delete_contact(self, name: str) -> bool:
@@ -128,7 +125,7 @@ class ContactBook:
         self.contacts.remove(contact)
         return True
 
-    def search_partial_name(self, query: str) -> List[Contact]:
+    def search_partial_name(self, query: str) -> list[Contact]:
         query = query.lower()
         return [
             contact
@@ -136,7 +133,7 @@ class ContactBook:
             if query in contact[Field.NAME.value].lower()
         ]
 
-    def sort_contacts(self, key: str) -> List[Contact]:
+    def sort_contacts(self, key: str) -> list[Contact]:
         return sorted(self.contacts, key=lambda contact: contact[key].lower())
 
     def print_contact_details(self, contact: Contact) -> None:
@@ -206,8 +203,10 @@ class ContactBook:
             return
 
         print(MSG_SKIP_FIELD)
-        self.update_contact(name, self.collect_updates(contact))
-        print(MSG_CONTACT_UPDATED)
+        if self.update_contact(name, self.collect_updates(contact)):
+            print(MSG_CONTACT_UPDATED)
+        else:
+            print(MSG_CONTACT_EXISTS)
 
     def handle_delete(self) -> None:
         name = safe_input(PROMPT_DELETE_NAME)

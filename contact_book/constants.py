@@ -1,7 +1,5 @@
-"""Field definitions, validation patterns, and user-facing text for the contact book.
-
-Keeping every literal in one place means a label, prompt, or rule is changed
-in a single spot instead of being hunted down across the application.
+"""
+Field definitions, validation patterns, and user-facing text for the contact book.
 """
 
 from enum import Enum
