@@ -1,0 +1,17 @@
+{% extends "core/base.html" %}
+
+{% block title %}Items{% endblock %}
+
+{% block content %}
+  <h1>Items</h1>
+  <ul>
+    {% for item in items %}
+      <li>
+        <a href="{% url 'core:item-detail' item.id %}">{{ item.name }}</a>
+        &mdash; {{ item.category }} (${{ item.price }})
+      </li>
+    {% empty %}
+      <li>No items yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

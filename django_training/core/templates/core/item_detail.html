@@ -1,0 +1,13 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ item.name }}{% endblock %}
+
+{% block content %}
+  <h1>{{ item.name }}</h1>
+  <dl>
+    <dt>Category</dt><dd>{{ item.category }}</dd>
+    <dt>Price</dt><dd>${{ item.price }}</dd>
+    <dt>Description</dt><dd>{{ item.description }}</dd>
+  </dl>
+  <p><a href="{% url 'core:item-list' %}">Back to all items</a></p>
+{% endblock %}
